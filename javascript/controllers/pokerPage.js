@@ -21,6 +21,9 @@ Poker.planning.pokerPage = {
     // indicates if the current user is voting
     isVoting: false,
 
+    // indicates the remaining time to vote
+    remainingTime: Poker.planning.params.VOTE_DELAY,
+
     /**
      * Contains current session votes. Structure :
      * {
@@ -137,16 +140,22 @@ Poker.planning.pokerPage = {
                 Poker.planning.pokerPage.vote($(this).text());
             });
 
+            $("#resumeButton").bind("touchstart click", function(e) {
+                e.preventDefault();
+                $(this).removeClass("active");
+                Poker.planning.pokerPage.vote('Resume');
+            });
+
             // subscribe to room update
             var subscriptionFilters = {
                 term: {
                     copy_id: Poker.planning.RoomManager.currentRoom().copyId()
                 }
             };
-            Poker.planning.pokerPage.roomIdSubscription = Poker.planning.kuzzle.subscribe(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, subscriptionFilters, function(response) {
-                if(response.error) {
+            Poker.planning.pokerPage.roomIdSubscription = Poker.planning.kuzzle.subscribe(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, subscriptionFilters, function(error, response) {
+                if(error) {
                     console.log("Error in pokerPage.run() function when subscribing to room update.")
-                    console.error(response.error);
+                    console.error(error);
                 }
                 else {
                     if (response.action == "delete") {
@@ -164,12 +173,12 @@ Poker.planning.pokerPage = {
 
 
             // Subscribes to poker actions
-            Poker.planning.pokerPage.actionSubscription = Poker.planning.kuzzle.subscribe(Poker.planning.pokerPage.KUZZLE_POKER_ACTION_COLLECTION, {term: {roomid: Poker.planning.RoomManager.currentRoom().id()}}, function(response) {
-                if(response.error) {
-                    console.error(response.error);
+            Poker.planning.pokerPage.actionSubscription = Poker.planning.kuzzle.subscribe(Poker.planning.pokerPage.KUZZLE_POKER_ACTION_COLLECTION, {term: {roomid: Poker.planning.RoomManager.currentRoom().id()}}, function(error, response) {
+                if(error) {
+                    console.error(error);
                 }
                 else {
-                    var body = response.body;
+                    var body = response._source;
                     switch(body.action) {
 
                         case Poker.planning.pokerPage.ACTION_LAUNCH_VOTE:
@@ -312,10 +321,10 @@ Poker.planning.pokerPage = {
                 vote: value
             },
             false,
-            function(response) {
-                if(response.error) {
+            function(error, response) {
+                if(error) {
                     console.log("Error in pokerPage.vote function");
-                    console.error(response.error);
+                    console.error(error);
                 }
             }
         );
@@ -329,7 +338,11 @@ Poker.planning.pokerPage = {
     receiveUserVote: function( username, vote) {
         this.userVotes[username] = vote;
 
-        if(Poker.planning.pokerPage.isVoting == false) {
+        if (Poker.planning.pokerPage.isVoting) {
+            if (vote == "Pause") {
+                this.receivePauseVoteAction();
+            }
+        } else {
             Poker.planning.pokerPage.displayUserVotes();
         }
     },
@@ -352,9 +365,15 @@ Poker.planning.pokerPage = {
      */
     sendLaunchVoteAction: function() {
         if(Poker.planning.pokerPage.isVoting == false) {
-            Poker.planning.kuzzle.create(Poker.planning.pokerPage.KUZZLE_POKER_ACTION_COLLECTION, {action: Poker.planning.pokerPage.ACTION_LAUNCH_VOTE, roomid: Poker.planning.RoomManager.currentRoom().id()}, false, function(response) {
-                if(response.error) {
-                    console.error(response.error);
+            Poker.planning.kuzzle.create(Poker.planning.pokerPage.KUZZLE_POKER_ACTION_COLLECTION, 
+            {
+                action: Poker.planning.pokerPage.ACTION_LAUNCH_VOTE, 
+                roomid: Poker.planning.RoomManager.currentRoom().id()
+            }, 
+            false, 
+            function(error, response) {
+                if(error) {
+                    console.error(error);
                 }
             });
         }
@@ -368,8 +387,30 @@ Poker.planning.pokerPage = {
         $(".users .user-card").removeClass("active");
         $(".cards").fadeIn();
         Poker.planning.pokerPage.userVotes = {};
-        setTimeout(function(){$(".time").addClass("active");}, 50);
-        setTimeout(Poker.planning.pokerPage.endVote, Poker.planning.params.VOTE_DELAY);
+        this._timeTimeout = setTimeout(function(){$(".time").addClass("active");}, 50);
+        this._endVoteTimeout = setTimeout(Poker.planning.pokerPage.endVote, Poker.planning.pokerPage.remainingTime);
+        this._remainingTimeInterval = setInterval(Poker.planning.pokerPage.countTime, 1);
+    },
+
+    /**
+     *  Well, count the time...
+     */
+    countTime: function(){
+        this.remainingTime--;
+    },
+
+    /**
+     * Displays planning poker cards when a "pause vote" action has been received from kuzzle.
+     */
+    receivePauseVoteAction: function() {
+        clearTimeout(this._timeTimeout);
+        clearTimeout(this._endVoteTimeout);
+        clearTimeout(this._remainingTimeInterval)
+        Poker.planning.pokerPage.isVoting = false;
+        $(".users .user-card").removeClass("active");
+        $(".cards").fadeOut();
+        $(".time").removeClass("active");
+        $(".resume").addClass("active");
     },
 
     /**

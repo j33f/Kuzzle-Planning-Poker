@@ -67,14 +67,14 @@ Poker.planning.RoomManager = {
         this._rooms = {};
 
         // Kuzzle request
-        Poker.planning.kuzzle.search(this.KUZZLE_ROOM_COLLECTION, {size: 50}, function(response) {
-            if(response.error) {
-                console.error(response.error);
+        Poker.planning.kuzzle.search(this.KUZZLE_ROOM_COLLECTION, {size: 50}, function(error, response) {
+            if(error) {
+                console.error(error);
             }
 
             if(callback != undefined) {
-                for(var i = 0; i < response.result.hits.hits.length; i++) {
-                    var roomInfos = response.result.hits.hits[i];
+                for(var i = 0; i < response.hits.hits.length; i++) {
+                    var roomInfos = response.hits.hits[i];
                     var room = new Poker.planning.Room();
                     room.datas = roomInfos._source;
                     room.id(roomInfos._id);
@@ -99,10 +99,10 @@ Poker.planning.RoomManager = {
             return false;
         }
 
-        Poker.planning.kuzzle.delete(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, roomId, function (response) {
+        Poker.planning.kuzzle.delete(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, roomId, function (error, response) {
 
-            if (response.error) {
-                console.error(response.error);
+            if (error) {
+                console.error(error);
             }
 
             if(Poker.planning.RoomManager.currentRoom() != false && Poker.planning.RoomManager.currentRoom().id() == roomId) {
@@ -134,11 +134,11 @@ Poker.planning.RoomManager = {
      */
     updateOrCreateRoom: function(kuzzleResponse) {
         if(Poker.planning.RoomManager.rooms()[kuzzleResponse._id] != undefined) {
-            Poker.planning.RoomManager.rooms()[kuzzleResponse._id].refresh(kuzzleResponse._id, kuzzleResponse.body);
+            Poker.planning.RoomManager.rooms()[kuzzleResponse._id].refresh(kuzzleResponse._id, kuzzleResponse._source);
         }
         else {
             var room = new Poker.planning.Room();
-            room.refresh(kuzzleResponse._id, kuzzleResponse.body);
+            room.refresh(kuzzleResponse._id, kuzzleResponse._source);
             Poker.planning.RoomManager._rooms[kuzzleResponse._id] = room;
         }
     }

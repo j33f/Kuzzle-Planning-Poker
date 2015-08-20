@@ -6,11 +6,11 @@ Poker.planning = {
         // Contains the nickname of the current user
         nickname: false,
 
-        KUZZLE_SERVER: "http://server/to/kuzzle",
+        KUZZLE_SERVER: "http://localhost:7512",
 
         // URL of the application, ex: http://www.poker.kaliop.com/index.html
         // DO NOT ADD SLASH AT THE END
-        APPLICATION_URL: "http://localhost/ppkuzzle/index.html",
+        APPLICATION_URL: "http://localhost/index.html",
 
         // delay of vote in milliseconds
         VOTE_DELAY: 10000
@@ -23,7 +23,7 @@ Poker.planning = {
      */
     run: function() {
 
-        this.kuzzle = new Kuzzle(this.params.KUZZLE_SERVER);
+        this.kuzzle = Kuzzle.init(this.params.KUZZLE_SERVER);
 
         // activating bootstrap tooltips
         $('[data-toggle="tooltip"]').tooltip();

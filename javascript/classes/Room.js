@@ -9,6 +9,40 @@
  * - copy_id : a copy of the _id field, used to subscribe to a specific room update because subscription to _id is impossible with Kuzzle for the moment.
  * - type: constant, used to subscript to all rooms update in the same time, because it's mandadory to provide a filter to Kuzzle.
  */
+
+var UUID = (function() {
+    // Private array of chars to use
+    var CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'.split('');
+
+    return function (len, radix) {
+      var chars = CHARS, uuid = [], i;
+      radix = radix || chars.length;
+
+      if (len) {
+        // Compact form
+        for (i = 0; i < len; i++) uuid[i] = chars[0 | Math.random()*radix];
+      } else {
+        // rfc4122, version 4 form
+        var r;
+
+        // rfc4122 requires these characters
+        uuid[8] = uuid[13] = uuid[18] = uuid[23] = '-';
+        uuid[14] = '4';
+
+        // Fill in random data.  At i==19 set the high bits of clock sequence as
+        // per rfc4122, sec. 4.1.5
+        for (i = 0; i < 36; i++) {
+          if (!uuid[i]) {
+            r = 0 | Math.random()*16;
+            uuid[i] = chars[(i == 19) ? (r & 0x3) | 0x8 : r];
+          }
+        }
+      }
+
+      return uuid.join('');
+    };
+
+  })();
 Poker.planning.Room = function()
 {
 
@@ -25,10 +59,15 @@ Poker.planning.Room = function()
     }
 
     this.id = function(id) {
-        if(id != undefined) {
-            this.datas._id = id;
+        try {
+            if(id != undefined) {
+                this.datas._id = id;
+            }
+            return this.datas._id;
+        } catch(e) {
+            // retry if the room is not ready
+            location.reload();
         }
-        return this.datas._id;
     }
 
     this.copyId = function(id) {
@@ -129,19 +168,21 @@ Poker.planning.Room = function()
         var context = this;
         if(this.id() == "") { // creation
 
-            Poker.planning.kuzzle.create(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, this.datas, true, function(response) {
-                if(response.error) {
-                    console.error(response.error);
+            this.id(UUID());
+            Poker.planning.kuzzle.create(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, this.datas, true, function (error, response) {
+                if(error) {
+                    console.error(error);
                 }
                 else {
-                    context.id(response.result._id);
-                    context.copyId(response.result._id);
+                    context.id(response._id);
+                    context.copyId(response._id);
 
                     // saving again for setting copy_id field
-                    Poker.planning.kuzzle.update(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, context.datas, function(response) {
-                        if(response.error) {
-                            console.error(response.error);
+                    Poker.planning.kuzzle.update(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, context.datas, function (error, response) {
+                        if(error) {
+                            console.error(error);
                         }
+                        var rooms = Poker.planning.RoomManager.rooms();
 
                         Poker.planning.RoomManager.rooms()[context.id()] = context;
 
@@ -156,9 +197,9 @@ Poker.planning.Room = function()
         }
         else { // update
 
-            Poker.planning.kuzzle.update(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, this.datas, function(response) {
-                if(response.error) {
-                    console.error(response.error);
+            Poker.planning.kuzzle.update(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, this.datas, function (error, response) {
+                if(error) {
+                    console.error(error);
                 }
 
                 if(callback != undefined) {

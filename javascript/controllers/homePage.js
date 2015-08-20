@@ -51,10 +51,10 @@ Poker.planning.homePage = {
                     type: "ROOM"
                 }
             };
-            Poker.planning.pokerPage.roomIdSubscription = Poker.planning.kuzzle.subscribe(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, subscriptionFilters, function(response) {
-                if(response.error) {
+            Poker.planning.pokerPage.roomIdSubscription = Poker.planning.kuzzle.subscribe(Poker.planning.RoomManager.KUZZLE_ROOM_COLLECTION, subscriptionFilters, function(error, response) {
+                if(error) {
                     console.log("Error in homePage.run() function when subscribing to room update.")
-                    console.error(response.error);
+                    console.error(error);
                 }
                 else {
                     if(response.action == "delete") {
@@ -83,7 +83,8 @@ Poker.planning.homePage = {
         for(var roomId in Poker.planning.RoomManager.rooms()) {
             var room = Poker.planning.RoomManager.rooms()[roomId];
             var url = "index.html?page=poker&nickname=" + encodeURIComponent(Poker.planning.nickname()) + "&roomid=" + encodeURIComponent(room.id());
-            $("ul.rooms").append('<li><a href="'+url+'" data-room-id="' + room.id() + '">' + room.name() + '<span class="user-list">'+room.users().join(", ")+'</span></a></li>');
+            var users = room.users() || [];
+            $("ul.rooms").append('<li><a href="'+url+'" data-room-id="' + room.id() + '">' + room.name() + '<span class="user-list">'+users.join(", ")+'</span></a></li>');
             count++;
         }
 
